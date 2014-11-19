@@ -54,6 +54,10 @@ FontAwesomeSvgPngProcessor.prototype.setSize = function(size) {
     this.size = size;
 };
 
+FontAwesomeSvgPngProcessor.prototype.setBase64 = function(base64) {
+    this.base64 = base64;
+};
+
 FontAwesomeSvgPngProcessor.prototype.process = function() {
     return this._getIconIds().then(function() {
         return this._processFont();
@@ -84,7 +88,6 @@ FontAwesomeSvgPngProcessor.prototype._parseFont = function(result) {
 
     var lines = result.body.split('\n');
     var linesNumber = lines.length;
-
     var i = 0;
     var stats = {
         numberOfSVGFiles: 0,
@@ -95,7 +98,10 @@ FontAwesomeSvgPngProcessor.prototype._parseFont = function(result) {
         return lines[i++];
     };
 
-    var processLine = function(line) {
+    var b64Object = {};
+    var b64File = path.join(this.outputPath, this.color, 'png', this.size.toString(), 'base64.json');
+
+    var processLine = function(line, b64Object) {
         var deferred = when.defer();
         var matches = line.match(/^<glyph unicode="&#x([^"]+);"\s*(?:horiz-adv-x="(\d+)")?\s*d="([^"]+)"/);
 
@@ -105,41 +111,57 @@ FontAwesomeSvgPngProcessor.prototype._parseFont = function(result) {
 
         var svgData = this._getTemplate({
             advWidth: matches[2],
-            path: matches[3]
+            path: matches[3],
+            color: this.color
         });
 
-        mkdirp.sync(path.join(this.outputPath, this.color, 'svg'), '0777');
-        mkdirp.sync(path.join(this.outputPath, this.color, 'png', this.size.toString()), '0777');
+        mkdirp.sync(path.join(this.outputPath, this.color, 'svg'));
+        mkdirp.sync(path.join(this.outputPath, this.color, 'png', this.size.toString()));
 
         var svgFilename = path.join(this.outputPath, this.color, 'svg', this.iconIds[matches[1]] + '.svg');
-        var pngFilename = path.join(this.outputPath, this.color, 'png', this.size.toString(), this.iconIds[matches[1]] + '.png');
+        var pngDir = path.join(this.outputPath, this.color, 'png', this.size.toString(), this.iconIds[matches[1]] + '.png');
+        var pngFilename = this.iconIds[matches[1]];
         var _self = this;
         fs.writeFile(svgFilename, svgData, function(error) {
             if (error) {
                 deferred.reject(error);
             }
             stats.numberOfSVGFiles++;
-            var rsvgConvert = spawn('rsvg-convert', ['-f', 'png', '-w', _self.size, '-o', pngFilename]);
+            var rsvgConvert = spawn('rsvg-convert', ['-f', 'png', '-w', _self.size, '-o', pngDir]);
             rsvgConvert.stdin.end(svgData);
             stats.numberOfPNGFiles++;
             rsvgConvert.once('error', deferred.reject);
-            rsvgConvert.once('exit', deferred.resolve);
+            rsvgConvert.once('exit', function (code, signal) {
+                if(code === 0) {
+                    if(_self.base64) {
+                        var file = fs.readFileSync(pngDir);
+                        var b64Data = new Buffer(file, 'binary').toString('base64');
+                        b64Object[pngFilename] = 'data:image/png;base64,' + b64Data;
+                    }
+                    return deferred.resolve();
+                } else {
+                    return deferred.reject(signal);
+                }
+            });
         });
 
         return deferred.promise;
     }.bind(this);
 
-    var processNext = function() {
+    var processNext = function(b64Object) {
         if (i >= linesNumber) {
+            if(this.base64) {
+                fs.writeFileSync(b64File, JSON.stringify(b64Object));
+            }
             return stats;
         }
 
-        return processLine(getNextLine()).then(function() {
-            return processNext();
+        return processLine(getNextLine(), b64Object).then(function() {
+            return processNext(b64Object);
         });
-    };
+    }.bind(this);
 
-    return processNext();
+    return processNext(b64Object);
 };
 
 FontAwesomeSvgPngProcessor.prototype._getTemplate = function(options) {
@@ -152,7 +174,8 @@ FontAwesomeSvgPngProcessor.prototype._getTemplate = function(options) {
         shiftY: -(-2*PIXEL),
         width: 14*PIXEL,
         height: 14*PIXEL,
-        path: options.path
+        path: options.path,
+        color: options.color
     };
 
     var template = this.template.substr(0);

@@ -23,6 +23,7 @@ module.exports = function (grunt) {
         processor.setOutputPath(this.data.destination);
         processor.setColor(this.data.color);
         processor.setSize(this.data.size);
+        processor.setBase64(this.data.base64);
 
         processor.process().then(function(stats) {
             grunt.log.writeln(stats.numberOfSVGFiles + " SVG files have been created");

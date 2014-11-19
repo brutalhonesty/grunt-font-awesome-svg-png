@@ -31,7 +31,8 @@ module.exports = function(grunt) {
       default_options: {
         destination: 'tmp',
         color: '#85c6cc',
-        size: 32
+        size: 32,
+        base64: true
       }
     }
 
