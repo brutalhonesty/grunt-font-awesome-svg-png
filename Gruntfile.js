@@ -16,7 +16,7 @@ module.exports = function(grunt) {
       all: [
         'Gruntfile.js',
         'tasks/*.js',
-        'font-awesome-svg.js'
+        'font-awesome-svg-png.js'
       ],
       options: {
         jshintrc: '.jshintrc'
@@ -27,9 +27,11 @@ module.exports = function(grunt) {
       tests: ['tmp']
     },
 
-    font_awesome_svg: {
+    font_awesome_svg_png: {
       default_options: {
-        destination: 'tmp/svg'
+        destination: 'tmp',
+        color: '#85c6cc',
+        size: 32
       }
     }
 
@@ -44,6 +46,6 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-nodeunit');
 
   // By default, lint and run all tests.
-  grunt.registerTask('default', ['jshint', 'font_awesome_svg']);
+  grunt.registerTask('default', ['jshint', 'font_awesome_svg_png']);
 
 };

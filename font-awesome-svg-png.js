@@ -1,5 +1,6 @@
 var request = require("request");
 var when = require("when");
+var spawn = require('child_process').spawn;
 var yaml = require("js-yaml");
 var fs = require("fs");
 var mkdirp = require('mkdirp');
@@ -28,30 +29,38 @@ var makeRequest = function(url) {
     return deferred.promise;
 };
 
-var FontAwesomeSvgProcessor = function() {
+var FontAwesomeSvgPngProcessor = function() {
     this.iconsYAMLUrl = "https://github.com/FortAwesome/Font-Awesome/raw/master/src/icons.yml";
     this.svgFontUrl = "https://github.com/FortAwesome/Font-Awesome/raw/master/fonts/fontawesome-webfont.svg";
     this.template =
         '<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg">' +
         '<g transform="translate({shiftX} {shiftY})">' +
         '<g transform="scale(1 -1) translate(0 -1280)">' +
-        '<path d="{path}" />' +
+        '<path d="{path}" fill="{color}" />' +
         '</g></g>' +
         '</svg>';
     this.iconIds = {};
 };
 
-FontAwesomeSvgProcessor.prototype.setOutputPath = function(path) {
+FontAwesomeSvgPngProcessor.prototype.setOutputPath = function(path) {
     this.outputPath = path;
 };
 
-FontAwesomeSvgProcessor.prototype.process = function() {
+FontAwesomeSvgPngProcessor.prototype.setColor = function(color) {
+    this.color = color;
+};
+
+FontAwesomeSvgPngProcessor.prototype.setSize = function(size) {
+    this.size = size;
+};
+
+FontAwesomeSvgPngProcessor.prototype.process = function() {
     return this._getIconIds().then(function() {
         return this._processFont();
     }.bind(this));
 };
 
-FontAwesomeSvgProcessor.prototype._getIconIds = function() {
+FontAwesomeSvgPngProcessor.prototype._getIconIds = function() {
     return makeRequest(this.iconsYAMLUrl).then(function(result) {
         var icons = yaml.safeLoad(result.body).icons;
 
@@ -61,24 +70,25 @@ FontAwesomeSvgProcessor.prototype._getIconIds = function() {
     }.bind(this));
 };
 
-FontAwesomeSvgProcessor.prototype._processFont = function() {
+FontAwesomeSvgPngProcessor.prototype._processFont = function() {
     return this._getFont().then(function(result) {
         return this._parseFont(result);
     }.bind(this));
 };
 
-FontAwesomeSvgProcessor.prototype._getFont = function () {
+FontAwesomeSvgPngProcessor.prototype._getFont = function () {
     return makeRequest(this.svgFontUrl);
 };
 
-FontAwesomeSvgProcessor.prototype._parseFont = function(result) {
+FontAwesomeSvgPngProcessor.prototype._parseFont = function(result) {
 
     var lines = result.body.split('\n');
     var linesNumber = lines.length;
 
     var i = 0;
     var stats = {
-        numberOfFiles: 0
+        numberOfSVGFiles: 0,
+        numberOfPNGFiles: 0
     };
 
     var getNextLine = function() {
@@ -98,16 +108,22 @@ FontAwesomeSvgProcessor.prototype._parseFont = function(result) {
             path: matches[3]
         });
 
-        mkdirp.sync(this.outputPath);
+        mkdirp.sync(path.join(this.outputPath, this.color, 'svg'), '0777');
+        mkdirp.sync(path.join(this.outputPath, this.color, 'png', this.size.toString()), '0777');
 
-        var filename = path.join(this.outputPath, this.iconIds[matches[1]] + ".svg");
-
-        fs.writeFile(filename, svgData, function(error) {
+        var svgFilename = path.join(this.outputPath, this.color, 'svg', this.iconIds[matches[1]] + '.svg');
+        var pngFilename = path.join(this.outputPath, this.color, 'png', this.size.toString(), this.iconIds[matches[1]] + '.png');
+        var _self = this;
+        fs.writeFile(svgFilename, svgData, function(error) {
             if (error) {
                 deferred.reject(error);
             }
-            stats.numberOfFiles++;
-            deferred.resolve();
+            stats.numberOfSVGFiles++;
+            var rsvgConvert = spawn('rsvg-convert', ['-f', 'png', '-w', _self.size, '-o', pngFilename]);
+            rsvgConvert.stdin.end(svgData);
+            stats.numberOfPNGFiles++;
+            rsvgConvert.once('error', deferred.reject);
+            rsvgConvert.once('exit', deferred.resolve);
         });
 
         return deferred.promise;
@@ -126,7 +142,7 @@ FontAwesomeSvgProcessor.prototype._parseFont = function(result) {
     return processNext();
 };
 
-FontAwesomeSvgProcessor.prototype._getTemplate = function(options) {
+FontAwesomeSvgPngProcessor.prototype._getTemplate = function(options) {
     var PIXEL = 128;
 
     var advWidth = (options.advWidth ? options.advWidth : 12*PIXEL);
@@ -148,4 +164,4 @@ FontAwesomeSvgProcessor.prototype._getTemplate = function(options) {
     return template;
 };
 
-module.exports = FontAwesomeSvgProcessor;
+module.exports = FontAwesomeSvgPngProcessor;
