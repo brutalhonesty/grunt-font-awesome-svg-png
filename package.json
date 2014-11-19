@@ -1,7 +1,7 @@
 {
   "name": "grunt-font-awesome-svg-png",
   "description": "Get font-awesome and parse it into separate SVG and PNG files",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "homepage": "https://github.com/brutalhonesty/grunt-font-awesome-svg",
   "author": ["Dmitrii sylvix <sylvix.dh@gmail.com>", "Adam Schodde <sparky1010+github@gmail.com>"],
   "repository": {
