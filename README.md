@@ -33,7 +33,8 @@ grunt.initConfig({
     some_target: {
       destination: "build/svg/font-awesome",
       color: 'red', // You can also use hex values (#ffffff)
-      size: 32 // Pixel width
+      size: 32, // Pixel width
+      base64: true
     }
   },
 });
@@ -55,3 +56,8 @@ Which color should be used for the SVG and PNG files.
 Type: `Integer`
 
 How big the PNG files should be.
+
+#### size
+Type: `Boolean`
+
+Whether to generate a base64 JSON file for the icons. The file is created as ```DESTINATION/png/SIZE/base64.json```
