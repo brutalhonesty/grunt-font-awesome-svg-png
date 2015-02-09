@@ -57,7 +57,7 @@ Type: `Integer`
 
 How big the PNG files should be.
 
-#### size
+#### base64
 Type: `Boolean`
 
 Whether to generate a base64 JSON file for the icons. The file is created as ```DESTINATION/png/SIZE/base64.json```
